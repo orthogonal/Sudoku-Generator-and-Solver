@@ -74,58 +74,58 @@ initend:
 	j 		end
 
 printboard:
-	li		$t2, 0
-	move	$t3, $s0
+	li		$t2, 0					#$t2 is i
+	move	$t3, $s0				#$t3 is the index of the array ($s0[i])
 	
 printstart:
-	beq		$t2, 81, printend
+	beq		$t2, 81, printend		#while (i < 81)
 	
+	lw		$a0, ($t3)				#Get $s0[i] ($t3 holds the index in memory that the value will be at)
+	beq		$a0, $zero, printspace	#If it is 0 print a space, if it is not then just continue and print it.
 	li		$v0, 1
-	lw		$a0, ($t3)
-	beq		$a0, $zero, printspace
 	syscall
-	j 		notzero
+	j 		notzero					#Skip all the printing-a-space stuff since it is not a space.
 printspace:
 	li		$v0, 4
 	la		$a0, Underscore
-	syscall
+	syscall							#Print the space
 notzero:
 	
-	addi	$t2, $t2, 1
-	addi	$t3, $t3, 4
+	addi	$t2, $t2, 1				#i++
+	addi	$t3, $t3, 4				#Increment the array pointer
 	
+	li		$v0, 4
+	la		$a0, Space
+	syscall							#Output a space (between the numbers)
+	
+	li		$a0, 3					#This checks if i = 0 mod 3, and if it is then it outputs another space.
+	div		$t2, $a0				#This way there is a bigger space between the blocks of the table.
+	mfhi	$a0
+	bne		$a0, $zero, stopspaces	#If i != 0 mod 3, it will be != 0 mod 9 and 0 mod 27 as well, so skip the next few steps.
 	li		$v0, 4
 	la		$a0, Space
 	syscall
 	
-	li		$t4, 3
-	div		$t2, $t4
-	mfhi	$t4
-	bne		$t4, $zero, stopspaces
-	li		$v0, 4
-	la		$a0, Space
-	syscall
-	
-	li		$t4, 9
-	div		$t2, $t4
-	mfhi	$t4
-	bne		$t4, $zero, stopspaces
+	li		$a0, 9					#This checks if i = 0 mod 9, and if it is, then it outputs a new line.
+	div		$t2, $a0				
+	mfhi	$a0
+	bne		$a0, $zero, stopspaces
 	li		$v0, 4
 	la		$a0, NewLine
 	syscall
 	
-	li		$t4, 27
-	div		$t2, $t4
-	mfhi	$t4
-	bne		$t4, $zero, stopspaces
+	li		$a0, 27					#This checks if i = 0 mod 27, and if it is, then it outputs another new line.
+	div		$t2, $a0				#This way, there is a blank line between sets of blocks (vertically).
+	mfhi	$a0
+	bne		$a0, $zero, stopspaces
 	li		$v0, 4
 	la		$a0, NewLine
 	syscall
 	
 stopspaces:
-	j 		printstart
+	j 		printstart				#Loop back around.
 printend:
-	jr		$ra
+	jr		$ra						#Return (this is a void function).
 	
 	
 end:
@@ -143,3 +143,4 @@ NewLine:	.asciiz "\n"
 Space:		.asciiz " "
 Invalid:	.asciiz "\nInvalid Input"
 Underscore:	.asciiz "_"
+First:		.asciiz "Please choose an option:\n1:  Solve a Sudoku Puzzle\n2:  Generate a Sudoku Puzzle"
