@@ -8,13 +8,11 @@
 #	$s1:  Base address of the input Sudoku puzzle
 #################################################################
 
-# $t0 = temp, $t1 = result of temp calculation (orig. j, but that is not used), $t2 = bunch of stuff in forming outputArray[x][y]
-# $t3 = 9, $t4 = 1, $t5 = 8, $t6 = 10
-# $a0 = x, $a1 = y, $a2 = i
-# $t7 = temporarily used to store value of x upon function call, $t8 = temporarily used to store value of y upon function call
-
 	.text	
 main:
+	la		$a0, Welcome
+	li		$v0, 4
+	syscall
 	li		$v0, 9		# 9 is the syscall to allocate heap memory for an array.  Specify how many bytes to allocate in $a0.
 	li		$a0, 324	# Allocate 324 bytes (81 words)
 	syscall
@@ -24,8 +22,6 @@ main:
 	li		$a0, 324
 	syscall
 	move	$s1, $v0	# So $s1 is the base address of the input array.
-	
-	j		generate_puzzle
 	
 #####
 #	OK, the two arrays (input and output) are now initialized.  First, the user decides what he/she wants to do.
@@ -178,7 +174,7 @@ define_puzzle:
 	
 	li		$t0, 0		# $t0 is i
 	
-	#Initialize all of $s1 to zero
+	# Initialize all of $s1 to zero
 allzerosstart:
 	beq		$t0, 81, allzerosstop
 	sw		$zero, ($t1)
@@ -233,16 +229,7 @@ invalidinput:
 	j initstart
 	
 initend:
-	move	$s2, $s1
-	jal		printboard
-	
-	#TESTING STUFF
-	li		$a0, 0
-	li		$a1, 0
-	jal		backtrack
-	#
-	
-	j 		end							#THIS IS A PLACEHOLDER, IT SHOULD SOLVE THE PUZZLE NOW.
+	j		solve						# Now it solves the puzzle.
 	
 #####################################
 
@@ -468,14 +455,26 @@ print_no_soln:
 	j 		end
 
 
-
-
-
 #####################################
 ##	Function backtrack
-
-##	Registers:
-
+##	Backtrack takes two indices, x and y, as input parameters that specify the index of the array to use.
+##	If this index has a value, then either backtrack recursively on the next cell or, if it is the last cell, return 1.
+##  If the recursive backtrack works, return 1.
+##	If this index is 0 (has no value), then, for each possible value 1 through 9,
+##	Call input_value on the cell and the value, to see if it can go in that cell.
+##	If it can not for any of the values, then return 0 and, if the input and output array differ on it, make the output value 0.
+##	If it can for one of the values, then make it that value and do the same as you would do if the index had a value.
+##	Registers:  
+##	$a0:  Input x
+##	$a1:  Input y
+##	$a2:  Used as i in the loop
+##	$t2:  Temporary value used as a pointer in various places
+##	$t5:  Used as as temporary value for checking the loop condition
+##	$t6:  Holds x briefly when $a0 is needed for a syscall
+##	$t7:  Constant value of 8
+##	$t8:  Constant value of 9
+##	$t9:  Constant value of 10
+##	$v0:  Often a return value from input_value, sometimes used for syscalls (the two uses are disjoint)
 ######################################
 
 
@@ -498,20 +497,13 @@ backtrack:
 	
 	move 	$a2, $zero 	# $a2 is i and i = 0.  It increments at the beginning of the loop, which goes from 1 to 9.
 
-#####################################
-##	Function i_loop
-##	Loops through i from 1 to 9.
-##	
-##	Registers:
-
-######################################
 
 i_loop:
 
 	addi 	$a2, $a2, 1
 	
-	slt 	$s5, $a2, $t9 			# $t9 is 10, so if i < 10, $s5 is set to 1
-	beq 	$s5, $zero, end_i_loop	# if $s5 is 0, then i = 10, and the loop is over.
+	slt 	$t5, $a2, $t9 			# $t9 is 10, so if i < 10, $t5 is set to 1
+	beq 	$t5, $zero, end_i_loop	# if $t5 is 0, then i = 10, and the loop is over.
 
 ###############   FUNCTION CALL:  input_value(x, y, i) #########################
 	
@@ -566,14 +558,12 @@ i_loop:
 	add 	$t2, $s0, $t2 
 	sw 		$t0, 0($t2) 	# output[x][y] = $t0
 	
+	# Output a dot to let the user know that something is happening.
 	move	$t6, $a0
 	la		$a0, Dot
 	li		$v0, 4
 	syscall
 	move	$a0, $t6
-
-	#move 	$t7, $a0
-	#move 	$t8, $a1
 	
 	# If (x = 8 && y = 8) return 1, otherwise go to the different else cases to continue to the next cell.
 	# We use De Morgans Law to check the equality condition.  $t7 is 8.
@@ -682,12 +672,6 @@ output_zero_else:
 	# Otherwise, go back to the start of the i loop.
 	beq 	$v0, $zero, i_loop
 	jr 		$ra
-	
-	####!!! WHAT IS THIS?? ####
-	# move 	$a0, $t7 # can put these two instructions here b/c if we dont reach this point, were exiting method so theyre not needed
-	# move 	$a1, $t8
-	#######	
-	# dont see why it would be necessary to test if i == 10, as that seems evident at this point
 
 
 end_i_loop:
@@ -696,15 +680,15 @@ end_i_loop:
 	add 	$t2, $t2, $a1
 	sll 	$t2, $t2, 2
 	add 	$t2, $s0, $t2 
-	lw 		$s3, 0($t2)		# $s3 = output[x][y]
+	lw 		$t5, 0($t2)		# $t5 = output[x][y]
 	
-	mflo 	$t1 			# LO still has the product of $a0 and $t3, so we dont need to multiply again.
+	mflo 	$t1 			# LO still has the product of $a0 and $t8, so we dont need to multiply again.
 	add 	$t1, $t1, $a1
 	sll 	$t1, $t1, 2
 	add 	$t1, $s1, $t1 	
 	lw 		$t1, 0($t1)		# $t1 = input[x][y]
 	
-	beq 	$t1, $s3, arrays_match
+	beq 	$t1, $t5, arrays_match
 	sw 		$zero, 0($t2) 	# output[x][y] = 0 if the input and output dont match
 
 # Either way, return 0.
@@ -772,7 +756,6 @@ output_not_zero_else_if:
 #################################################################
 	
 	jr 		$ra 
-	#### !!!  WHATEVER HAPPENED TO RETURN 1?? ####
 	# if $v0 == 0, I think we need to return 0, based on what I read at http://stackoverflow.com/questions/1610030/why-can-you-return-from-a-non-void-function-without-returning-a-value-without-pr
 
 output_not_zero_else:
@@ -820,8 +803,27 @@ output_not_zero_else:
 ##################################################
 
 	jr $ra
-	#### !!!  WHATEVER HAPPENED TO RETURN 1?? ####
 
+
+
+#####################################
+##	Function input_value
+##	Takes x, y, and a value as parameters.
+##	Checks the row, column, and box of cell (x, y) to see if the value is valid.
+##	If it is, then return the value.  If it is not, return 0.
+##	Registers:  
+##	$t0:  Constant value of first 9 and then 3
+##	$t4:  Constant value of 6
+##	$t5:  Constant value of 9
+##	$t1:  Used as i
+##	$t2:  Used as j
+##	$t3:  Used as a pointer in various places
+##	$a0:  x
+##	$a1:  y
+##	$a2:  The value passed in to check
+##	$ra:  The return address
+##	$v0:  The value to return
+######################################
 
 input_value:
 
@@ -866,39 +868,39 @@ horiz_and_vert:
 	beq 	$t1, $zero, x_3_to_5
 	slt 	$t1, $a1, $t0
 	beq 	$t1, $zero, x_less_3_y_3_to_5
-	move 	$t1, $zero # i = 0
+	move 	$t1, $zero 						# i = 0
 
 i_x_less_3_y_less_3:
 	move 	$t2, $zero # j = 0
 
 j_x_less_3_y_less_3:
 	mult 	$t1, $t5
-	mflo 	$t3 # $t3 = i*9
-	add 	$t3, $t3, $t2 # $t3 = i*9 + j
-	sll 	$t3, $t3, 2 # $t3 = (i*9 + j)*4
-	add 	$t3, $s0, $t3 # now $t3 contains address of outputArray[i][j]
+	mflo 	$t3 							# $t3 = i*9
+	add 	$t3, $t3, $t2 					# $t3 = i*9 + j
+	sll 	$t3, $t3, 2 					# $t3 = (i*9 + j)*4
+	add 	$t3, $s0, $t3 					# now $t3 contains address of outputArray[i][j]
 	lw 		$t3, 0($t3)
 	beq 	$a2, $t3, set_to_zero
 	addi 	$t2, $t2, 1
 	bne 	$t2, $t0, j_x_less_3_y_less_3
 	addi 	$t1, $t1, 1
 	bne 	$t1, $t0, i_x_less_3_y_less_3
-	move 	$v0, $a2 # want to return value
+	move 	$v0, $a2 						# want to return value
 	jr 		$ra
 
 x_less_3_y_3_to_5:
-	slt 	$t1, $a1, $t4 # if y < 6, $t1 is set to 1
+	slt 	$t1, $a1, $t4 					# if y < 6, $t1 is set to 1
 	beq 	$t1, $zero, x_less_3_y_6_to_8
-	move 	$t1, $zero # i = 0
+	move 	$t1, $zero 						# i = 0
 
 i_x_less_3_y_3_to_5:
-	move 	$t2, $t0 # j = 3
+	move 	$t2, $t0 						# j = 3
 
 j_x_less_3_y_3_to_5:
 	mult 	$t1, $t5
-	mflo 	$t3 # $t3 = i*9
-	add 	$t3, $t3, $t2 # $t3 = i*9 + j
-	sll 	$t3, $t3, 2 # $t3 = (i*9 + j)*4
+	mflo 	$t3 							# $t3 = i*9
+	add 	$t3, $t3, $t2 					# $t3 = i*9 + j
+	sll 	$t3, $t3, 2 					# $t3 = (i*9 + j)*4
 	add 	$t3, $s0, $t3
 	lw 		$t3, 0($t3)
 	beq 	$a2, $t3, set_to_zero
@@ -906,20 +908,20 @@ j_x_less_3_y_3_to_5:
 	bne 	$t2, $t4, j_x_less_3_y_3_to_5
 	addi 	$t1, $t1, 1
 	bne 	$t1, $t0, i_x_less_3_y_3_to_5
-	move 	$v0, $a2 # want to return value
+	move 	$v0, $a2 						# want to return value
 	jr 		$ra
 
 x_less_3_y_6_to_8:
-	move 	$t1, $zero # i = 0
+	move 	$t1, $zero 						# i = 0
 
 i_x_less_3_y_6_to_8:
 	move 	$t2, $t4 # j = 6
 
 j_x_less_3_y_6_to_8:
 	mult 	$t1, $t5
-	mflo 	$t3 # $t3 = i*9
-	add 	$t3, $t3, $t2 # $t3 = i*9 + j
-	sll 	$t3, $t3, 2 # $t3 = (i*9 + j)*4
+	mflo 	$t3 							# $t3 = i*9
+	add 	$t3, $t3, $t2 					# $t3 = i*9 + j
+	sll 	$t3, $t3, 2 					# $t3 = (i*9 + j)*4
 	add 	$t3, $s0, $t3
 	lw 		$t3, 0($t3)
 	beq 	$a2, $t3, set_to_zero
@@ -927,47 +929,47 @@ j_x_less_3_y_6_to_8:
 	bne 	$t2, $t5, j_x_less_3_y_6_to_8
 	addi 	$t1, $t1, 1
 	bne 	$t1, $t0, i_x_less_3_y_6_to_8
-	move 	$v0, $a2 # want to return value
+	move 	$v0, $a2 						# want to return value
 	jr 		$ra
 
 x_3_to_5:
-	slt 	$t1, $a0, $t4 # else if x < 6, $t1 is set to 1
+	slt 	$t1, $a0, $t4 					# else if x < 6, $t1 is set to 1
 	beq 	$t1, $zero, x_6_to_8
-	slt 	$t1, $a1, $t0 # if y < 3, $t1 is set to 1
+	slt 	$t1, $a1, $t0 					# if y < 3, $t1 is set to 1
 	beq 	$t1, $zero, x_3_to_5_y_3_to_5
-	move	$t1, $t0 # i = 3
+	move	$t1, $t0 						# i = 3
 
 i_x_3_to_5_y_less_3:
-	move 	$t2, $zero # j = 0
+	move 	$t2, $zero 						# j = 0
 
 j_x_3_to_5_y_less_3:
 	mult 	$t1, $t5
-	mflo 	$t3 # $t3 = i*9
-	add 	$t3, $t3, $t2 # $t3 = i*9 + j
-	sll 	$t3, $t3, 2 # $t3 = (i*9 + j)*4
-	add 	$t3, $s0, $t3 # now $t3 contains address of outputArray[i][j]
+	mflo 	$t3 							# $t3 = i*9
+	add 	$t3, $t3, $t2 					# $t3 = i*9 + j
+	sll 	$t3, $t3, 2 					# $t3 = (i*9 + j)*4
+	add 	$t3, $s0, $t3 					# now $t3 contains address of outputArray[i][j]
 	lw 		$t3, 0($t3)
 	beq 	$a2, $t3, set_to_zero
 	addi 	$t2, $t2, 1
 	bne 	$t2, $t0, j_x_3_to_5_y_less_3
 	addi 	$t1, $t1, 1
 	bne 	$t1, $t4, i_x_3_to_5_y_less_3
-	move 	$v0, $a2 # want to return value
+	move 	$v0, $a2 						# want to return value
 	jr 		$ra
 
 x_3_to_5_y_3_to_5:
-	slt 	$t1, $a1, $t4 # if y < 6, $t1 is set to 1
+	slt 	$t1, $a1, $t4 					# if y < 6, $t1 is set to 1
 	beq 	$t1, $zero, x_3_to_5_y_6_to_8
-	move 	$t1, $t0 # i = 3
+	move 	$t1, $t0 						# i = 3
 
 i_x_3_to_5_y_3_to_5:
-	move 	$t2, $t0 # j = 3
+	move 	$t2, $t0 						# j = 3
 
 j_x_3_to_5_y_3_to_5:
 	mult 	$t1, $t5
-	mflo 	$t3 # $t3 = i*9
-	add 	$t3, $t3, $t2 # $t3 = i*9 + j
-	sll 	$t3, $t3, 2 # $t3 = (i*9 + j)*4
+	mflo 	$t3 							# $t3 = i*9
+	add 	$t3, $t3, $t2 					# $t3 = i*9 + j
+	sll 	$t3, $t3, 2 					# $t3 = (i*9 + j)*4
 	add 	$t3, $s0, $t3
 	lw 		$t3, 0($t3)
 	beq 	$a2, $t3, set_to_zero
@@ -975,20 +977,20 @@ j_x_3_to_5_y_3_to_5:
 	bne 	$t2, $t4, j_x_3_to_5_y_3_to_5
 	addi 	$t1, $t1, 1
 	bne 	$t1, $t4, i_x_3_to_5_y_3_to_5
-	move 	$v0, $a2 # want to return value
+	move 	$v0, $a2 						# want to return value
 	jr 		$ra
 
 x_3_to_5_y_6_to_8:
-	move 	$t1, $t0 # i = 3
+	move 	$t1, $t0 						# i = 3
 
 i_x_3_to_5_y_6_to_8:
-	move 	$t2, $t4 # j = 6
+	move 	$t2, $t4 						# j = 6
 
 j_x_3_to_5_y_6_to_8:
 	mult 	$t1, $t5
-	mflo 	$t3 # $t3 = i*9
-	add 	$t3, $t3, $t2 # $t3 = i*9 + j
-	sll 	$t3, $t3, 2 # $t3 = (i*9 + j)*4
+	mflo 	$t3 							# $t3 = i*9
+	add 	$t3, $t3, $t2 					# $t3 = i*9 + j
+	sll 	$t3, $t3, 2 					# $t3 = (i*9 + j)*4
 	add 	$t3, $s0, $t3
 	lw 		$t3, 0($t3)
 	beq 	$a2, $t3, set_to_zero
@@ -996,45 +998,45 @@ j_x_3_to_5_y_6_to_8:
 	bne 	$t2, $t5, j_x_3_to_5_y_6_to_8
 	addi 	$t1, $t1, 1
 	bne 	$t1, $t4, i_x_3_to_5_y_6_to_8
-	move 	$v0, $a2 # want to return value
+	move 	$v0, $a2 						# want to return value
 	jr 		$ra
 
 x_6_to_8:
-	slt 	$t1, $a1, $t0 # if y < 3, $t1 is set to 1
+	slt 	$t1, $a1, $t0 					# if y < 3, $t1 is set to 1
 	beq 	$t1, $zero, x_6_to_8_y_3_to_5
-	move 	$t1, $t4 # i = 6
+	move 	$t1, $t4 						# i = 6
 
 i_x_6_to_8_y_less_3:
-	move 	$t2, $zero # j = 0
+	move 	$t2, $zero 						# j = 0
 
 j_x_6_to_8_y_less_3:
 	mult 	$t1, $t5
-	mflo 	$t3 # $t3 = i*9
-	add 	$t3, $t3, $t2 # $t3 = i*9 + j
-	sll 	$t3, $t3, 2 # $t3 = (i*9 + j)*4
-	add 	$t3, $s0, $t3 # now $t3 contains address of outputArray[i][j]
+	mflo 	$t3 							# $t3 = i*9
+	add 	$t3, $t3, $t2 					# $t3 = i*9 + j
+	sll 	$t3, $t3, 2 					# $t3 = (i*9 + j)*4
+	add 	$t3, $s0, $t3 					# now $t3 contains address of outputArray[i][j]
 	lw 		$t3, 0($t3)
 	beq 	$a2, $t3, set_to_zero
 	addi 	$t2, $t2, 1
 	bne 	$t2, $t0, j_x_6_to_8_y_less_3
 	addi 	$t1, $t1, 1
 	bne 	$t1, $t5, i_x_6_to_8_y_less_3
-	move 	$v0, $a2 # want to return value
+	move 	$v0, $a2 						# want to return value
 	jr 		$ra
 
 x_6_to_8_y_3_to_5:
-	slt 	$t1, $a1, $t4 # if y < 6, $t1 is set to 1
+	slt 	$t1, $a1, $t4 					# if y < 6, $t1 is set to 1
 	beq 	$t1, $zero, x_6_to_8_y_6_to_8
-	move 	$t1, $t4 # i = 6
+	move 	$t1, $t4 						# i = 6
 
 i_x_6_to_8_y_3_to_5:
-	move 	$t2, $t0 # j = 3
+	move 	$t2, $t0 						# j = 3
 
 j_x_6_to_8_y_3_to_5:
 	mult 	$t1, $t5
-	mflo 	$t3 # $t3 = i*9
-	add 	$t3, $t3, $t2 # $t3 = i*9 + j
-	sll 	$t3, $t3, 2 # $t3 = (i*9 + j)*4
+	mflo 	$t3 							# $t3 = i*9
+	add 	$t3, $t3, $t2 					# $t3 = i*9 + j
+	sll 	$t3, $t3, 2 					# $t3 = (i*9 + j)*4
 	add 	$t3, $s0, $t3
 	lw 		$t3, 0($t3)
 	beq 	$a2, $t3, set_to_zero
@@ -1042,20 +1044,20 @@ j_x_6_to_8_y_3_to_5:
 	bne 	$t2, $t4, j_x_6_to_8_y_3_to_5
 	addi 	$t1, $t1, 1
 	bne 	$t1, $t5, i_x_6_to_8_y_3_to_5
-	move 	$v0, $a2 # want to return value
+	move 	$v0, $a2 						# want to return value
 	jr 		$ra
 
 x_6_to_8_y_6_to_8:
-	move 	$t1, $t4 # i = 6
+	move 	$t1, $t4 						# i = 6
 
 i_x_6_to_8_y_6_to_8:
-	move 	$t2, $t4 # j = 6
+	move 	$t2, $t4 						# j = 6
 
 j_x_6_to_8_y_6_to_8:
 	mult 	$t1, $t5
-	mflo 	$t3 # $t3 = i*9
-	add 	$t3, $t3, $t2 # $t3 = i*9 + j
-	sll 	$t3, $t3, 2 # $t3 = (i*9 + j)*4
+	mflo 	$t3 							# $t3 = i*9
+	add 	$t3, $t3, $t2 					# $t3 = i*9 + j
+	sll 	$t3, $t3, 2 					# $t3 = (i*9 + j)*4
 	add 	$t3, $s0, $t3
 	lw 		$t3, 0($t3)
 	beq 	$a2, $t3, set_to_zero
@@ -1063,11 +1065,11 @@ j_x_6_to_8_y_6_to_8:
 	bne 	$t2, $t5, j_x_6_to_8_y_6_to_8
 	addi 	$t1, $t1, 1
 	bne 	$t1, $t5, i_x_6_to_8_y_6_to_8
-	move 	$v0, $a2 # want to return value
+	move 	$v0, $a2 						# want to return value
 	jr 		$ra
 
 set_to_zero:
-	move 	$v0, $zero # return 0
+	move 	$v0, $zero 						# return 0
 	jr 		$ra
 	
 end:
@@ -1078,6 +1080,7 @@ end:
 		
 		
 .data
+Welcome:	.asciiz "          Sudoku Puzzle Generator/Solver\n          By Gregory Fowler, Andrew Latham, Patrick Melvin, and Caley Shem-Crumrine\n          EECS 314 Final Project, Spring Semester 2012\n\n\n"
 Populating:	.asciiz "Populating output array"
 Dot:		.asciiz "."
 NoSolution:	.asciiz "This sudoku puzzle is unsolvable."
