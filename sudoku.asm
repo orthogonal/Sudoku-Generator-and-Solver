@@ -252,27 +252,36 @@ initend:
 ##	This takes $s2 as an argument.  $s2 must be a pointer to the puzzle to be printed.
 ##	The puzzle is output to the console.
 ##	To call this function, use the following syntax:
+##		addi	$sp, $sp, -8	
+##		sw		$a0, 0($sp)
+##		sw		$ra, 4($sp)
 ##		move	$s2, PointerToArray
-##		jal		printboard
-##	$t3 and $t4 are used.  They are usually constants.
+##		jal		printboard	
+##		lw		$ra, 4($sp)
+##		lw		$a0, 0($sp)	
+##		addi	$sp, $sp, 8
+##	$t7 and $t8 are used.  They are usually constants.
 ##	Their constant values are returned to normal at the end of operation, so it is alright.
 ##	
 ##	Registers:
 ##	$s2:  A pointer to the start of the array.  Passed as an argument.
-##	$t3:  i, which is the current index in the array.  Starts at 0, but it considers 
+##	$t7:  i, which is the current index in the array.  Starts at 0, but it considers 
 ##				the array indices to be 1 through 81 for modular convenience.
-##	$t4:  A pointer to various indices within the array.
+##	$t8:  A pointer to various indices within the array.
 ##	$ra:  A pointer to the memory address of the point of execution before printboard was called.
 ######################################
 
 printboard:
-	li		$t3, 0					# $t3 is i
-	move	$t4, $s2				# $t4 is the index of the array ($s2[i])
+	li		$t7, 0					# $t7 is i
+	move	$t8, $s2				# $t8 is the index of the array ($s2[i])
+	la		$a0, NewLine
+	li		$v0, 4
+	syscall
 	
 printstart:
-	beq		$t3, 81, printend		# while (i < 81)
+	beq		$t7, 81, printend		# while (i < 81)
 	
-	lw		$a0, ($t4)				# Get $s2[i] ($t4 holds the index in memory that the value will be at)
+	lw		$a0, ($t8)				# Get $s2[i] ($t8 holds the index in memory that the value will be at)
 	beq		$a0, $zero, printspace	# If it is 0 print a space, if it is not then just continue and print it.
 	li		$v0, 1
 	syscall
@@ -284,15 +293,15 @@ printspace:
 	syscall							# Print the space
 
 notzero:	
-	addi	$t3, $t3, 1				# i++
-	addi	$t4, $t4, 4				# Increment the array pointer
+	addi	$t7, $t7, 1				# i++
+	addi	$t8, $t8, 4				# Increment the array pointer
 	
 	li		$v0, 4
 	la		$a0, Space
 	syscall							# Output a space (between the numbers)
 	
 	li		$a0, 3					# This checks if i = 0 mod 3, and if it is then it outputs another space.
-	div		$t3, $a0				# This way there is a bigger space between the blocks of the table.
+	div		$t7, $a0				# This way there is a bigger space between the blocks of the table.
 	mfhi	$a0
 	bne		$a0, $zero, stopspaces	# If i != 0 mod 3, it will be != 0 mod 9 and 0 mod 27 as well, so skip the next few steps.
 	li		$v0, 4
@@ -300,7 +309,7 @@ notzero:
 	syscall
 	
 	li		$a0, 9					# This checks if i = 0 mod 9, and if it is, then it outputs a new line.
-	div		$t3, $a0				
+	div		$t7, $a0				
 	mfhi	$a0
 	bne		$a0, $zero, stopspaces
 	li		$v0, 4
@@ -308,7 +317,7 @@ notzero:
 	syscall
 	
 	li		$a0, 27					# This checks if i = 0 mod 27, and if it is, then it outputs another new line.
-	div		$t3, $a0				# This way, there is a blank line between sets of blocks (vertically).
+	div		$t7, $a0				# This way, there is a blank line between sets of blocks (vertically).
 	mfhi	$a0
 	bne		$a0, $zero, stopspaces
 	li		$v0, 4
@@ -319,8 +328,8 @@ stopspaces:
 	j 		printstart				# Loop back around.
 
 printend:
-	li		$t3, 9
-	li		$t4, 1
+	li		$t7, 8
+	li		$t8, 9
 	jr		$ra						# Return (this is a void function).
 	
 ########################################
@@ -556,12 +565,18 @@ i_loop:
 	sll 	$t2, $t2, 2 
 	add 	$t2, $s0, $t2 
 	sw 		$t0, 0($t2) 	# output[x][y] = $t0
+	
+	move	$t6, $a0
+	la		$a0, Dot
+	li		$v0, 4
+	syscall
+	move	$a0, $t6
 
 	#move 	$t7, $a0
 	#move 	$t8, $a1
 	
 	# If (x = 8 && y = 8) return 1, otherwise go to the different else cases to continue to the next cell.
-	# We use De Morgans Law to check the equality condition.  $t5 is 8.
+	# We use De Morgans Law to check the equality condition.  $t7 is 8.
 	bne 	$a0, $t7, output_zero_else		# If x != 8, then increment x.
 	bne 	$a1, $t7, output_zero_else_if 	# If x = 8, but y != 8, then increment y and set x to 0.
 	
