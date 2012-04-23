@@ -322,54 +322,281 @@ printend:
 ########################################
 
 
-generate_puzzle:
-	li $t0, 9
-	sw $t0, 16($s1)
-	sw $t0, 100($s1)
-	sw $t0, 168($s1)
-	sw $t0, 228($s1)
-	sw $t0, 288($s1)
-	li $t0, 7
-	sw $t0, 24($s1)
-	sw $t0, 176($s1)
-	sw $t0, 200($s1)
-	sw $t0, 220($s1)
-	sw $t0, 280($s1)
-	sw $t0, 304($s1)
-	li $t0, 5
-	sw $t0, 32($s1)
-	sw $t0, 92($s1)
-	sw $t0, 172($s1)
-	sw $t0, 224($s1)
-	sw $t0, 268($s1)
-	li $t0, 6
-	sw $t0, 40($s1)
-	sw $t0, 88($s1)
-	sw $t0, 132($s1)
-	sw $t0, 164($s1)
-	sw $t0, 188($s1)
-	li $t0, 3
-	sw $t0, 52($s1)
-	sw $t0, 96($s1)
-	sw $t0, 120($s1)
-	sw $t0, 144($s1)
-	sw $t0, 236($s1)
-	sw $t0, 256($s1)
-	li $t0, 2
-	sw $t0, 64($s1)
-	sw $t0, 156($s1)
-	sw $t0, 232($s1)
-	li $t0, 4
-	sw $t0, 76($s1)
-	sw $t0, 244($s1)
-	sw $t0, 296($s1)
-	li $t0, 1
-	sw $t0, 152($s1)
-	sw $t0, 196($s1)
-	li $t0, 8
-	sw $t0, 84($s1)
-	sw $t0, 124($s1)
-	sw $t0, 148($s1)
+#####################################
+##	Function generate_puzzle
+##	This takes a predefined solved sudoku board (array starter_board, see .data section for declaration)
+##	and switches random pairs of cells, pairs of rows, or pairs of columns a random amount of times.
+##	
+##	Registers:
+##	$t0: number of switches to be made (1000-9000, defined using random number generator)
+##	$t1: temporarily holds multiplicand; holds what kind of switch is to be made (0-2); temp for row_switch loop
+##	$t3: holds first row/cell/column to be switched.
+##	$t4: holds second row/cell/column to be switched.
+######################################
+
+generate_puzzle: 
+
+	# Generate random number from 1-9, multiply by 1000.
+	# This will be the number of switches performed.
+	
+	############# TEST CALL
+	addi	$sp, $sp, -8	
+	sw		$a0, 0($sp)
+	sw		$ra, 4($sp)
+	move	$s2, PointerToArray
+	jal		RandomGeneration	
+	lw		$ra, 4($sp)
+	lw		$a0, 0($sp)	
+	addi	$sp, $sp, 8
+	#############
+	#########################
+	# TESTING
+	li		$v0, 4
+	la		$a0, NewLine
+	syscall
+	li		$v0, 1			# syscall 1 (print int)
+	move	$a0, $t8		# 
+	syscall
+	li		$v0, 4
+	la		$a0, NewLine
+	syscall
+	#########################
+
+	
+	move	$t0, $t8		# TEST VALUE
+	li		$t1, 1000		# 1001 just for TESTING (normally 1000)
+	mul		$t0, $t0, $t1
+	
+	
+switch_loop:
+	# Loops through $t0 times, performs one switch per loop.
+	beqz	$t0, print_board
+	addi	$t0, -1			# decrement counter
+	
+	# Generate random number from 0-2.
+	# This will be the type of switch to perform.
+	li		$t1, 2			# TEST VALUE
+	li		$t2, 0			# Used for comparisons.
+	
+	# Determine which switch to make, call appropriate function
+	beq		$t1, $t2, switch_rows	# if $t1 = 0, switch rows
+	addi	$t2, $t2, 1				# $t2 = 1
+	beq		$t1, $t2, switch_cols	# if $t1 = 1, switch columns
+	addi	$t2, $t2, 1				# $t2 = 2
+	beq		$t1, $t2, switch_cells	# if $t1 = 2, switch cells
+
+	print_board:
+		la		$t1, starter_board	# Load first array address
+		move	$s2, $t1
+		jal		printboard		# Start by printing the input array (this may be redundant)
+		li		$v0,10		# end program
+		syscall
+
+
+#####
+#		Switches two entire rows, but only within the same row of squares.
+#####
+	
+switch_rows:
+	# Generate two random numbers to determine which rows to switch
+	# First number is 1-9
+	# Second number is 1-2, as rows must be in the same square
+	li		$t3, 1			# TEST VALUE
+	li		$t4, 2			# TEST VALUE
+	li		$t2, 3			# Used for comparisons.
+	
+	# Ensure rows are within the same square (square_one, square_two, or square_three)
+	square_one:
+		sub		$t2, $t3, $t2
+		bgtz	$t2, square_two	# if row1 > 3 (not in square 1)
+		add		$t4, $t4, $t3	# row2 += row1
+		li		$t2, 3
+		sub		$t2, $t4, $t2
+		blez	$t2, row_switch	# if row2 <= 3, proceed to switch
+		addi	$t4, $t4, -3	# row2 -= 3
+		b		row_switch
+
+	square_two:
+		li		$t2, 6
+		sub		$t2, $t3, $t2
+		bgtz	$t2, square_three	# if row1 > 6 (not in square 1 or 2)
+		add		$t4, $t4, $t3		# row2 += row1
+		li		$t2, 6
+		sub		$t2, $t4, $t2
+		blez	$t2, row_switch		# if row2 <= 6, proceed to switch
+		addi	$t4, $t4, -3		# row2 -= 3
+		b		row_switch
+		
+	square_three:
+		add		$t4, $t4, $t3		# row2 += row1
+		li		$t2, 9
+		sub		$t2, $t4, $t2
+		blez	$t2, row_switch		# if row2 <= 9, proceed to switch
+		addi	$t4, $t4, -3		# row2 -= 3
+		
+	# Perform row switch.
+	row_switch:
+		# Calculate indices of the first cell in each row, store them back in their registers.
+		li		$t2, 9
+		addi	$t3, $t3, -1
+		mul		$t3, $t3, $t2	# Index of cell1 = (row1 - 1) * 9
+		addi	$t4, $t4, -1
+		mul		$t4, $t4, $t2	# Index of cell2 = (row2 - 1) * 9
+	
+	row_switch_loop:
+		# Loops through 9 times
+		beqz	$t2, switch_loop	
+		addi	$t2, $t2, -1
+		
+		# Get address and value of cell1.
+		move	$t5, $t3			# copy $t3
+		la		$t1, starter_board	# Load first array address
+		add		$t5, $t5, $t5    	# double the index of row1
+		add		$t5, $t5, $t5    	# double the index again (now 4x)
+		add		$t1, $t1, $t5		# $t1 = address of cell1
+		lw		$t5, 0($t1)			# $t1 = value of cell1
+		
+		# Get address and value of cell2.
+		move	$t7, $t4			# copy $t4
+		la		$t6, starter_board	# Load first array address
+		add		$t7, $t7, $t7    	# double the index of row2
+		add		$t7, $t7, $t7    	# double the index again (now 4x)
+		add		$t6, $t6, $t7		# $t6 = address of cell2
+		lw		$t7, 0($t6)			# $t7 = value of cell2
+		
+		# Set board[cell1] to board[cell2]
+		sw		$t7, 0($t1)
+		
+		# Set board[cell2] to board[cell1]
+		sw		$t5, 0($t6)
+		
+		# Increment cell indices.
+		addi	$t3, $t3, 1
+		addi	$t4, $t4, 1
+
+		b		row_switch_loop
+
+
+#####
+#		Switches two entire columns, but only within the same column of squares.
+#####	
+	
+switch_cols:
+	# Generate two random numbers to determine which columns to switch
+	# First number is 1-9
+	# Second number is 1-2, as rows must be in the same square
+	li		$t3, 4			# TEST VALUE
+	li		$t4, 1			# TEST VALUE
+	li		$t2, 3			# Used for comparisons.
+
+	# Ensure columns are within the same square (square_one, square_two, or square_three)
+	square_one_col:
+		sub		$t2, $t3, $t2
+		bgtz	$t2, square_two_col	# if column1 > 3 (not in square 1)
+		add		$t4, $t4, $t3		# column2 += column1
+		li		$t2, 3
+		sub		$t2, $t4, $t2
+		blez	$t2, column_switch	# if column2 <= 3, proceed to switch
+		addi	$t4, $t4, -3		# column2 -= 3
+		b		column_switch
+
+	square_two_col:
+		li		$t2, 6
+		sub		$t2, $t3, $t2
+		bgtz	$t2, square_three_col	# if column1 > 6 (not in square 1 or 2)
+		add		$t4, $t4, $t3			# column2 += column1
+		li		$t2, 6
+		sub		$t2, $t4, $t2
+		blez	$t2, column_switch		# if column2 <= 6, proceed to switch
+		addi	$t4, $t4, -3			# column2 -= 3
+		b		column_switch
+		
+	square_three_col:
+		add		$t4, $t4, $t3		# column2 += column1
+		li		$t2, 9
+		sub		$t2, $t4, $t2
+		blez	$t2, column_switch	# if column2 <= 9, proceed to switch
+		addi	$t4, $t4, -3		# column2 -= 3
+		
+	# Perform column switch.
+	column_switch:
+	
+		# Calculate indices of the first cell in each column, store them back in their registers.
+		li		$t2, 9
+		addi	$t3, $t3, -1	# Index of cell1 = column1 - 1
+		addi	$t4, $t4, -1	# Index of cell2 = column2 - 1
+		
+	
+	column_switch_loop:
+		# Loops through 9 times
+		beqz	$t2, switch_loop	
+		addi	$t2, $t2, -1
+
+		# Get address and value of cell1.
+		move	$t5, $t3			# copy $t3
+		la		$t1, starter_board	# Load first array address
+		add		$t5, $t5, $t5    	# double the index of row1
+		add		$t5, $t5, $t5    	# double the index again (now 4x)
+		add		$t1, $t1, $t5		# $t1 = address of cell1
+		lw		$t5, 0($t1)			# $t5 = value of cell1
+		
+		# Get address and value of cell2.
+		move	$t7, $t4			# copy $t4
+		la		$t6, starter_board	# Load first array address
+		add		$t7, $t7, $t7    	# double the index of row2
+		add		$t7, $t7, $t7    	# double the index again (now 4x)
+		add		$t6, $t6, $t7		# $t6 = address of cell2
+		lw		$t7, 0($t6)			# $t7 = value of cell2
+		
+		# Set board[cell1] to board[cell2]
+		sw		$t7, 0($t1)
+		
+		# Set board[cell2] to board[cell1]
+		sw		$t5, 0($t6)
+		
+		# Increment cell indices.
+		addi	$t3, $t3, 9
+		addi	$t4, $t4, 9
+
+		b column_switch_loop
+
+	
+#####
+#		Switches two numbers in every cell in which they appear.
+#####
+	
+switch_cells:
+
+	# Generate two random numbers to determine which cells to switch
+	# Both numbers are 1-9
+	li		$t3, 1			# TEST VALUE
+	li		$t4, 9			# TEST VALUE
+	li		$t2, 81			# Loop counter
+	
+	cell_switch_loop:	
+		beqz	$t2, switch_loop
+		addi	$t2, $t2, -1
+	
+		# Get value of cell
+		move	$t6, $t2			# copy $t2
+		la		$t1, starter_board	# Load first array address
+		add		$t6, $t6, $t6    	# double the index of counter
+		add		$t6, $t6, $t6    	# double the index again (now 4x)
+		add		$t1, $t1, $t6		# $t1 = address of cell
+		lw		$t5, 0($t1)			# $t5 = value of cell
+		
+		# Check if cell has value that should be switched
+		beq		$t5, $t3, switch_cell_1
+		beq		$t5, $t4, switch_cell_2
+		b		cell_switch_loop
+		
+	switch_cell_1:		
+		sw		$t4, 0($t1)	
+		b		cell_switch_loop
+	
+	switch_cell_2:
+		sw		$t3, 0($t1)
+		b		cell_switch_loop
 
 
 solve:
@@ -1078,9 +1305,8 @@ end:
 		
 		
 		
-		
 .data
-Welcome:	.asciiz "          Sudoku Puzzle Generator/Solver\n          By Gregory Fowler, Andrew Latham, Patrick Melvin, and Caley Shem-Crumrine\n          EECS 314 Final Project, Spring Semester 2012\n\n\n"
+Welcome:	.asciiz "\tSudoku Puzzle Generator/Solver\n\tBy Gregory Fowler, Andrew Latham, Patrick Melvin, and Caley Shem-Crumrine\n\tEECS 314 Final Project, Spring Semester 2012\n\n\n"
 Populating:	.asciiz "Populating output array"
 Dot:		.asciiz "."
 NoSolution:	.asciiz "This sudoku puzzle is unsolvable."
@@ -1090,6 +1316,8 @@ NewLine:	.asciiz "\n"
 Space:		.asciiz " "
 Invalid:	.asciiz "Invalid Input"
 Underscore:	.asciiz "_"
-First:		.asciiz "\nPlease choose an option:\n1:  Solve a Sudoku Puzzle\n2:  Generate a Sudoku Puzzle\nEnter choice:"
+First:		.asciiz "\nPlease choose an option:\n1:  Solve a Sudoku Puzzle\n2:  Generate a Sudoku Puzzle\nEnter choice: "
+starter_board:	
+	.word	1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 1, 2, 3, 7, 8, 9, 1, 2, 3, 4, 5, 6, 2, 3, 4, 5, 6, 7, 8, 9, 1, 5, 6, 7, 8, 9, 1, 2, 3, 4, 8, 9, 1, 2, 3, 4, 5, 6, 7, 3, 4, 5, 6, 7, 8, 9, 1, 2, 6, 7, 8, 9, 1, 2, 3, 4, 5, 9, 1, 2, 3, 4, 5, 6, 7, 8
 FirstPuzzle: 
 	.word 1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 1, 2, 3, 7, 8, 9, 1, 2, 3, 4, 5, 6, 2, 3, 4, 5, 6, 7, 8, 9, 1, 5, 6, 7, 8, 9, 1, 2, 3, 4, 8, 9, 1, 2, 3, 4, 5, 6, 7, 3, 4, 5, 6, 7, 8, 9, 1, 2, 6, 7, 8, 9, 1, 2, 3, 4, 5, 9, 1, 2, 3, 4, 5, 6, 7, 8
