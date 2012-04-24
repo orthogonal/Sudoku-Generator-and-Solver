@@ -73,55 +73,63 @@ first_choice:
 ##	$a0:  Used for constants in a variety of places.
 ######################################
 
+RandomGeneration:
 
 	la $t0, FirstPuzzle
 	li $t1, 0
+
+# Get two sufficiently large input values in order to seed the RNG
+			
+GetFirstValue:	
+	la $a0, AskFirstValue
+	li $v0, 4
+	syscall
+	
+	li $v0, 5
+	syscall
+	
+	# check that the user entered an appropriate value.  If they didn't, try again
+
+	blt $v0, 1000, GetFirstValue
+	bgt $v0, 99999, GetFirstValue
+	
+	move $t3, $v0
+	
+GetSecondValue:
+	la $a0, AskSecondValue
+	li $v0, 4
+	syscall
+	
+	li $v0, 5
+	syscall
+	
+	blt $v0, 1000, GetSecondValue
+	bgt $v0, 99999, GetSecondValue
 		
 ####### These are all constants.
 
-	# ********* NOTE: The following declarations should probably be moved into the main method, or else the program will load them into memory every time this method is called ********** #
-	li $t2, 10000 	# the remainder will be divided by 10000 to get a number between 0 and 8
-	li $t3, 50000	# the current instance of the method, Xn, will be kept in s7
-	li $t4, 61	# store a in s4
-	li $t5, 3571	# store c in s5
-	li $t6, 90000	# store m in s6
-	# ********** OK, you can stop moving things into the main method now.  Thats all I needed. ********** #
+	li $t9, 10000 	# the remainder will be divided by 10000 to get a number between 0 and 8
+	add $s7, $s7, $v0
+	li $s4, 61	# store a in s4
+	li $s5, 3571	# store c in s5
+	li $s6, 90000	# store m in s6
 	
 ########
-	
-# generate a random number.  If that number is under 5, write a zero to that location and move to the next number.  Otherwise, just move to the next number
-RandomGeneration:
-	beq $t1, 81, PrintArray
-	mul $t3, $t3, $t4
-	add $t3, $t3, $t5
-	div $t3, $t6 
-	mfhi $t3
-	add $t8, $t3, $zero
-	div $t8, $t8, $t2
-	mflo $t8
-	addi $t8, $t8, 1
 
-	addi $t1, $t1, 1	# increment t1
+	li $t7, 1000 	# because so far we've refrained from using s registers
 	
-	move $a0, $t8
-	li $v0, 1
+GetDifficulty:
+	la $a0, AskDifficulty
+	li $v0, 4
 	syscall
 	
-	bgt $t8, 4, DoNothing
-	j WriteZero
-	
-DoNothing:
-	addi $t0, $t0, 4
-	j RandomGeneration
-
-WriteZero:
-	sw $zero, ($t0)
-	addi $t0, $t0, 4
-	j RandomGeneration
-
-PrintArray:
-	li $v0, 10
+	li $v0, 5
 	syscall
+	
+	move $s0, $v0
+
+	# TEST
+	b	generate_puzzle_2
 	
 ###### $t8 is the 1-digit random number.
 
@@ -178,8 +186,8 @@ define_puzzle:
 allzerosstart:
 	beq		$t0, 81, allzerosstop
 	sw		$zero, ($t1)
-	addi	$t0, 1
-	addi	$t1, 4
+	addi	$t0, $t0, 1
+	addi	$t1, $t1, 4
 	j allzerosstart
 	
 allzerosstop:				# Continue, now that everything is 0.
@@ -339,56 +347,50 @@ generate_puzzle:
 	# Generate random number from 1-9, multiply by 1000.
 	# This will be the number of switches performed.
 	
-	############# TEST CALL
+	b		RandomGeneration
+generate_puzzle_2:
 	addi	$sp, $sp, -8	
 	sw		$a0, 0($sp)
 	sw		$ra, 4($sp)
-	move	$s2, PointerToArray
-	jal		RandomGeneration	
+	jal		RandomNumberGenerator
 	lw		$ra, 4($sp)
 	lw		$a0, 0($sp)	
 	addi	$sp, $sp, 8
-	#############
-	#########################
-	# TESTING
-	li		$v0, 4
-	la		$a0, NewLine
-	syscall
-	li		$v0, 1			# syscall 1 (print int)
-	move	$a0, $t8		# 
-	syscall
-	li		$v0, 4
-	la		$a0, NewLine
-	syscall
-	#########################
-
 	
-	move	$t0, $t8		# TEST VALUE
-	li		$t1, 1000		# 1001 just for TESTING (normally 1000)
+	move	$t0, $t8		# $t0 holds random number
+	li		$t1, 1000
 	mul		$t0, $t0, $t1
-	
 	
 switch_loop:
 	# Loops through $t0 times, performs one switch per loop.
 	beqz	$t0, print_board
-	addi	$t0, -1			# decrement counter
+	addi	$t0, $t0, -1			# decrement counter
 	
-	# Generate random number from 0-2.
+	# Generate random number from 0-9.
 	# This will be the type of switch to perform.
-	li		$t1, 2			# TEST VALUE
-	li		$t2, 0			# Used for comparisons.
+	addi	$sp, $sp, -8	
+	sw		$a0, 0($sp)
+	sw		$ra, 4($sp)
+	jal		RandomNumberGenerator
+	lw		$ra, 4($sp)
+	lw		$a0, 0($sp)	
+	addi	$sp, $sp, 8
+	move	$t1, $t8		# $t1 holds random number
+	li		$t2, 3			# Used for comparisons.
 	
 	# Determine which switch to make, call appropriate function
-	beq		$t1, $t2, switch_rows	# if $t1 = 0, switch rows
-	addi	$t2, $t2, 1				# $t2 = 1
-	beq		$t1, $t2, switch_cols	# if $t1 = 1, switch columns
-	addi	$t2, $t2, 1				# $t2 = 2
-	beq		$t1, $t2, switch_cells	# if $t1 = 2, switch cells
+	sub		$t1, $t1, $t2		# $t1 - 3
+	blez	$t1, switch_rows	# if $t1 <= 3, switch rows
+	sub		$t1, $t1, $t2		# $t2 - 3
+	blez	$t1, switch_cols	# if $t1 <= 6, switch columns
+	sub		$t1, $t1, $t2		# $t2 - 3
+	blez	$t1, switch_cells	# if $t1 <= 9, switch cells
 
 	print_board:
+	# TESTING: CALL WRITEZEROES HERE
 		la		$t1, starter_board	# Load first array address
 		move	$s2, $t1
-		jal		printboard		# Start by printing the input array (this may be redundant)
+		jal		printboard	# Start by printing the input array (this may be redundant)
 		li		$v0,10		# end program
 		syscall
 
@@ -400,13 +402,37 @@ switch_loop:
 switch_rows:
 	# Generate two random numbers to determine which rows to switch
 	# First number is 1-9
+	addi	$sp, $sp, -8	
+	sw		$a0, 0($sp)
+	sw		$ra, 4($sp)
+	jal		RandomNumberGenerator
+	lw		$ra, 4($sp)
+	lw		$a0, 0($sp)	
+	addi	$sp, $sp, 8
+	move	$t3, $t8		# $t3 holds random number
+	
 	# Second number is 1-2, as rows must be in the same square
-	li		$t3, 1			# TEST VALUE
-	li		$t4, 2			# TEST VALUE
-	li		$t2, 3			# Used for comparisons.
+	addi	$sp, $sp, -8	
+	sw		$a0, 0($sp)
+	sw		$ra, 4($sp)
+	jal		RandomNumberGenerator
+	lw		$ra, 4($sp)
+	lw		$a0, 0($sp)	
+	addi	$sp, $sp, 8
+	move	$t4, $t8		# $t4 holds random number
+	li		$t5, 5			# for comparison
+	sub		$t4, $t4, $t5
+	blez	$t4, t4_1		# if $t4 <= 5, set to 1
+	li		$t4, 2			# else set to 2
+	b		square_one
+
+t4_1:
+	li		$t4, 1
+	b		square_one
 	
 	# Ensure rows are within the same square (square_one, square_two, or square_three)
 	square_one:
+		li		$t2, 3			# Used for comparisons.
 		sub		$t2, $t3, $t2
 		bgtz	$t2, square_two	# if row1 > 3 (not in square 1)
 		add		$t4, $t4, $t3	# row2 += row1
@@ -482,15 +508,39 @@ switch_rows:
 #####	
 	
 switch_cols:
-	# Generate two random numbers to determine which columns to switch
+	# Generate two random numbers to determine which rows to switch
 	# First number is 1-9
+	addi	$sp, $sp, -8	
+	sw		$a0, 0($sp)
+	sw		$ra, 4($sp)
+	jal		RandomNumberGenerator
+	lw		$ra, 4($sp)
+	lw		$a0, 0($sp)	
+	addi	$sp, $sp, 8
+	move	$t3, $t8		# $t3 holds random number
+	
 	# Second number is 1-2, as rows must be in the same square
-	li		$t3, 4			# TEST VALUE
-	li		$t4, 1			# TEST VALUE
-	li		$t2, 3			# Used for comparisons.
+	addi	$sp, $sp, -8	
+	sw		$a0, 0($sp)
+	sw		$ra, 4($sp)
+	jal		RandomNumberGenerator
+	lw		$ra, 4($sp)
+	lw		$a0, 0($sp)	
+	addi	$sp, $sp, 8
+	move	$t4, $t8		# $t4 holds random number
+	li		$t5, 5			# for comparison
+	sub		$t4, $t4, $t5
+	blez	$t4, t4_1_col	# if $t4 <= 5, set to 1
+	li		$t4, 2			# else set to 2
+	b		square_one_col
+
+t4_1_col:
+	li		$t4, 1
+	b		square_one_col
 
 	# Ensure columns are within the same square (square_one, square_two, or square_three)
 	square_one_col:
+		li		$t2, 3			# Used for comparisons.
 		sub		$t2, $t3, $t2
 		bgtz	$t2, square_two_col	# if column1 > 3 (not in square 1)
 		add		$t4, $t4, $t3		# column2 += column1
@@ -567,10 +617,27 @@ switch_cols:
 	
 switch_cells:
 
-	# Generate two random numbers to determine which cells to switch
+	# Generate two random numbers to determine which rows to switch
 	# Both numbers are 1-9
-	li		$t3, 1			# TEST VALUE
-	li		$t4, 9			# TEST VALUE
+	addi	$sp, $sp, -8	
+	sw		$a0, 0($sp)
+	sw		$ra, 4($sp)
+	jal		RandomNumberGenerator
+	lw		$ra, 4($sp)
+	lw		$a0, 0($sp)	
+	addi	$sp, $sp, 8
+	move	$t3, $t8		# $t3 holds random number
+	
+	# Second number is 1-2, as rows must be in the same square
+	addi	$sp, $sp, -8	
+	sw		$a0, 0($sp)
+	sw		$ra, 4($sp)
+	jal		RandomNumberGenerator
+	lw		$ra, 4($sp)
+	lw		$a0, 0($sp)	
+	addi	$sp, $sp, 8
+	move	$t4, $t8		# $t4 holds random number
+
 	li		$t2, 81			# Loop counter
 	
 	cell_switch_loop:	
@@ -597,6 +664,68 @@ switch_cells:
 	switch_cell_2:
 		sw		$t3, 0($t1)
 		b		cell_switch_loop
+
+
+####################################
+## Function RandomNumberGenerator
+##	
+## So, the way this method works is that it multiplies a by Xn, adds c to that, and gets the remainder of that mess all divided by m.
+## Then I come along and divide the remainder by 10000 to get it within the range we want.
+## The final random number generated will be found in t8.  Note that t8 can be overwritten as soon as you have the number you want; just don't store anything in there you want to keep.
+##
+####################################
+
+RandomNumberGenerator:
+		
+	#beq 	$t7, $zero, WriteZeroes	# Once we've completely generated the puzzle, then go through and write zeroes to appropriate locations.
+	mul 	$s7, $s7, $s4
+	add 	$s7, $s7, $s5
+	div 	$s7, $s6 
+	mfhi	$s7
+	add 	$t8, $s7, $zero
+	div 	$t8, $t8, $t9
+	mflo 	$t8
+	addi	$t8, $t8, 1
+	jr 		$ra				# return TEST
+	
+	##################################################
+	# here, determine what switches need to be done, #
+	# and whether they are rows, cells, etc.	 #
+	##################################################
+	
+	
+	
+# generate a random number.  If that number is under the selected difficulty, write a zero to that location and move to the next number.  Otherwise, just move to the next number
+WriteZeroes:
+	beq $t1, 81, printboard
+	mul $t3, $t3, $t4
+	add $t3, $t3, $t5
+	div $t3, $t6 
+	mfhi $t3
+	add $t8, $t3, $zero
+	div $t8, $t8, $t2
+	mflo $t8
+	addi $t8, $t8, 1
+
+	addi $t1, $t1, 1	# increment t1
+	
+	move $a0, $t8
+	li $v0, 1
+	syscall
+	
+	bgt $t8, $s0, DoNothing
+	j WriteAZero
+	
+DoNothing:
+	addi $t0, $t0, 4
+	j WriteZeroes
+
+WriteAZero:
+	sw $zero, ($t0)
+	addi $t0, $t0, 4
+	j WriteZeroes
+
+####################################
 
 
 solve:
@@ -1321,3 +1450,10 @@ starter_board:
 	.word	1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 1, 2, 3, 7, 8, 9, 1, 2, 3, 4, 5, 6, 2, 3, 4, 5, 6, 7, 8, 9, 1, 5, 6, 7, 8, 9, 1, 2, 3, 4, 8, 9, 1, 2, 3, 4, 5, 6, 7, 3, 4, 5, 6, 7, 8, 9, 1, 2, 6, 7, 8, 9, 1, 2, 3, 4, 5, 9, 1, 2, 3, 4, 5, 6, 7, 8
 FirstPuzzle: 
 	.word 1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 1, 2, 3, 7, 8, 9, 1, 2, 3, 4, 5, 6, 2, 3, 4, 5, 6, 7, 8, 9, 1, 5, 6, 7, 8, 9, 1, 2, 3, 4, 8, 9, 1, 2, 3, 4, 5, 6, 7, 3, 4, 5, 6, 7, 8, 9, 1, 2, 6, 7, 8, 9, 1, 2, 3, 4, 5, 9, 1, 2, 3, 4, 5, 6, 7, 8
+	.data
+AskFirstValue:
+	.asciiz "Enter a random value between 1000 and 99999\n"
+AskSecondValue:
+	.asciiz "Enter another number between 1000 and 99999.  These will be used to seed the random number generator.\n"
+AskDifficulty:
+	.asciiz "Enter a value between 1 and 9.  This will determine how hard the final puzzle is.  So no pressure or anything.  (Numbers under 1 will return a solved board; anything above 9 will return a blank board)\n"
