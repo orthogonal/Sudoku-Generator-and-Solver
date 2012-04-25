@@ -13,10 +13,6 @@ main:
 	la		$a0, Welcome
 	li		$v0, 4
 	syscall
-	li		$v0, 9		# 9 is the syscall to allocate heap memory for an array.  Specify how many bytes to allocate in $a0.
-	li		$a0, 324	# Allocate 324 bytes (81 words)
-	syscall
-	move	$s0, $v0	# So $s0 is the base address of the output array.
 	
 	li		$v0, 9
 	li		$a0, 324
@@ -675,7 +671,7 @@ switch_cells:
 
 RandomNumberGenerator:
 		
-	#beq 	$t7, $zero, WriteZeroes	# Once we've completely generated the puzzle, then go through and write zeroes to appropriate locations.
+	#beq 	$t7, $zero, WriteZeroes	# Once we have completely generated the puzzle, then go through and write zeroes to appropriate locations.
 	mul 	$s7, $s7, $s4
 	add 	$s7, $s7, $s5
 	div 	$s7, $s6 
@@ -695,7 +691,7 @@ RandomNumberGenerator:
 	
 # generate a random number.  If that number is under the selected difficulty, write a zero to that location and move to the next number.  Otherwise, just move to the next number
 WriteZeroes:
-	beq $t0, 81, printboard
+	beq $t0, 81, Done
 	mul $s7, $s7, $s4
 	add $s7, $s7, $s5
 	div $s7, $s6 
@@ -718,6 +714,16 @@ WriteAZero:
 	sw $zero, 0($t1)
 	addi $t1, $t1, 4
 	j WriteZeroes
+	
+Done:
+	jal		printboard
+	la		$a0, Continue
+	li		$v0, 4
+	syscall
+	li		$v0, 5
+	syscall
+	j		solve
+	
 
 ####################################
 
@@ -737,6 +743,11 @@ solve:
 ##	$t3:  Temporary value used to pass values between the arrays
 ######################################
 
+	li		$v0, 9		# 9 is the syscall to allocate heap memory for an array.  Specify how many bytes to allocate in $a0.
+	li		$a0, 324	# Allocate 324 bytes (81 words)
+	syscall
+	move	$s0, $v0	# So $s0 is the base address of the output array.
+	
 	la		$a0, Populating
 	li		$v0, 4
 	syscall
@@ -1451,3 +1462,4 @@ AskSecondValue:
 	.asciiz "Enter another number between 1000 and 99999.  These will be used to seed the random number generator.\n"
 AskDifficulty:
 	.asciiz "Enter a value between 1 and 9.  This will determine how hard the final puzzle is.  So no pressure or anything.  (Numbers under 1 will return a solved board; anything above 9 will return a blank board)\n"
+Continue:	.asciiz  "\nPress Enter to solve this puzzle"
