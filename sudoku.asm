@@ -387,12 +387,10 @@ switch_loop:
 	blez	$t1, switch_cells	# if $t1 <= 9, switch cells
 
 	print_board:
-	# TESTING: CALL WRITEZEROES HERE
 		la		$t1, starter_board	# Load first array address
 		move	$s2, $t1
-		jal		printboard	# Start by printing the input array (this may be redundant)
-		li		$v0,10		# end program
-		syscall
+		move	$s1, $t1
+		b		WriteZeroes
 
 
 #####
@@ -686,7 +684,7 @@ RandomNumberGenerator:
 	div 	$t8, $t8, $t9
 	mflo 	$t8
 	addi	$t8, $t8, 1
-	jr 		$ra				# return TEST
+	jr 		$ra	
 	
 	##################################################
 	# here, determine what switches need to be done, #
@@ -697,32 +695,28 @@ RandomNumberGenerator:
 	
 # generate a random number.  If that number is under the selected difficulty, write a zero to that location and move to the next number.  Otherwise, just move to the next number
 WriteZeroes:
-	beq $t1, 81, printboard
-	mul $t3, $t3, $t4
-	add $t3, $t3, $t5
-	div $t3, $t6 
+	beq $t0, 81, printboard
+	mul $s7, $s7, $s4
+	add $s7, $s7, $s5
+	div $s7, $s6 
 	mfhi $t3
-	add $t8, $t3, $zero
-	div $t8, $t8, $t2
+	add $t8, $s7, $zero
+	div $t8, $t9
 	mflo $t8
 	addi $t8, $t8, 1
 
-	addi $t1, $t1, 1	# increment t1
-	
-	move $a0, $t8
-	li $v0, 1
-	syscall
+	addi $t0, $t0, 1	# increment t0
 	
 	bgt $t8, $s0, DoNothing
 	j WriteAZero
 	
 DoNothing:
-	addi $t0, $t0, 4
+	addi $t1, $t1, 4
 	j WriteZeroes
 
 WriteAZero:
-	sw $zero, ($t0)
-	addi $t0, $t0, 4
+	sw $zero, 0($t1)
+	addi $t1, $t1, 4
 	j WriteZeroes
 
 ####################################
