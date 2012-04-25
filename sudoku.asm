@@ -122,7 +122,10 @@ GetDifficulty:
 	li $v0, 5
 	syscall
 	
-	move $s0, $v0
+	blt		$v0, 1, GetDifficulty
+	bgt		$v0, 9, GetDifficulty
+	
+difficulty_end:
 
 	# TEST
 	b	generate_puzzle_2
@@ -358,6 +361,10 @@ generate_puzzle_2:
 	mul		$t0, $t0, $t1
 	
 	srl		$s3, $t0, 4
+	
+	la		$a0, Generating
+	li		$v0, 4
+	syscall
 	
 switch_loop:
 	# Loops through $t0 times, performs one switch per loop.
@@ -789,6 +796,10 @@ populate_output_array:
 
 	move	$s2, $s0
 	jal		printboard		# Start by printing the input array (this may be redundant)
+	
+	la		$a0, Solving
+	li		$v0, 4
+	syscall
 	
 ###########  FUNCTION CALL:  Backtrack(0, 0)  ##########################
 
@@ -1445,6 +1456,10 @@ set_to_zero:
 	jr 		$ra
 	
 end:
+	la		$a0, ProgramDone
+	li		$v0, 4
+	syscall
+	
 	li		$v0, 10
 	syscall
 		
@@ -1461,6 +1476,9 @@ NewLine:	.asciiz "\n"
 Space:		.asciiz " "
 Invalid:	.asciiz "Invalid Input"
 Underscore:	.asciiz "_"
+Solving:	.asciiz "Solving"
+Generating:	.asciiz "Generating"
+ProgramDone:.asciiz "\nDone"
 First:		.asciiz "\nPlease choose an option:\n1:  Solve a Sudoku Puzzle\n2:  Generate a Sudoku Puzzle\nEnter choice: "
 starter_board:	
 	.word	1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 1, 2, 3, 7, 8, 9, 1, 2, 3, 4, 5, 6, 2, 3, 4, 5, 6, 7, 8, 9, 1, 5, 6, 7, 8, 9, 1, 2, 3, 4, 8, 9, 1, 2, 3, 4, 5, 6, 7, 3, 4, 5, 6, 7, 8, 9, 1, 2, 6, 7, 8, 9, 1, 2, 3, 4, 5, 9, 1, 2, 3, 4, 5, 6, 7, 8
@@ -1472,5 +1490,5 @@ AskFirstValue:
 AskSecondValue:
 	.asciiz "Enter another number between 1000 and 99999.  These will be used to seed the random number generator.\n"
 AskDifficulty:
-	.asciiz "Enter a value between 1 and 9.  This will determine how hard the final puzzle is.  So no pressure or anything.  (Numbers under 1 will return a solved board; anything above 9 will return a blank board)\n"
+	.asciiz "Enter a value between 1 and 9.  This will determine how hard the final puzzle is.  So no pressure or anything.\n"
 Continue:	.asciiz  "\nPress Enter to solve this puzzle"
