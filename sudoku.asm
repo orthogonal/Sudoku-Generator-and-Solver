@@ -357,10 +357,21 @@ generate_puzzle_2:
 	li		$t1, 1000
 	mul		$t0, $t0, $t1
 	
+	srl		$s3, $t0, 4
+	
 switch_loop:
 	# Loops through $t0 times, performs one switch per loop.
 	beqz	$t0, print_board
 	addi	$t0, $t0, -1			# decrement counter
+	
+	div		$t0, $s3
+	mfhi	$a0
+	bne		$a0, $zero, no_print_dot
+	
+	la		$a0, Dot
+	li		$v0, 4
+	syscall
+no_print_dot:
 	
 	# Generate random number from 0-9.
 	# This will be the type of switch to perform.
