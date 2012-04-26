@@ -809,9 +809,6 @@ populate_output_array:
 	syscall
 	
 	move 	$t0, $s1			# Make $t0 the pointer to the beginning of the input array again.
-
-	move	$s2, $s0
-	jal		printboard		# Start by printing the input array (this may be redundant)
 	
 	la		$a0, Solving
 	li		$v0, 4
