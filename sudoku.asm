@@ -817,6 +817,8 @@ populate_output_array:
 	li		$v0, 4
 	syscall
 	
+	li		$s4, 0
+	
 ###########  FUNCTION CALL:  Backtrack(0, 0)  ##########################
 
 	li 		$a0, 0
@@ -873,6 +875,7 @@ print_no_soln:
 ##	$t7:  Constant value of 8
 ##	$t8:  Constant value of 9
 ##	$t9:  Constant value of 10
+##	$s4:  Used to generate dots every now and then.
 ##	$v0:  Often a return value from input_value, sometimes used for syscalls (the two uses are disjoint)
 ######################################
 
@@ -957,12 +960,17 @@ i_loop:
 	add 	$t2, $s0, $t2 
 	sw 		$t0, 0($t2) 	# output[x][y] = $t0
 	
+	
+	addi	$s4, $s4, 1
+	bne		$s4, 100, nodot
 	# Output a dot to let the user know that something is happening.
 	move	$t6, $a0
 	la		$a0, Dot
 	li		$v0, 4
 	syscall
 	move	$a0, $t6
+	li		$s4, 0
+nodot:
 	
 	# If (x = 8 && y = 8) return 1, otherwise go to the different else cases to continue to the next cell.
 	# We use De Morgans Law to check the equality condition.  $t7 is 8.
