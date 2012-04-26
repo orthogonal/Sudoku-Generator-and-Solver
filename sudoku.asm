@@ -21,7 +21,7 @@ main:
 	
 #####
 #	OK, the two arrays (input and output) are now initialized.  First, the user decides what he/she wants to do.
-#####
+#####Wr
 
 first_choice:
 
@@ -89,7 +89,12 @@ GetFirstValue:
 	blt $v0, 1000, GetFirstValue
 	bgt $v0, 99999, GetFirstValue
 	
-	move $t3, $v0
+	move $s7, $v0
+	
+	bne $s7, 12345, GetSecondValue	# check for an easter egg. if the user didn't enter an appropriate value, just move on.
+	la $a0, LuggageCode
+	li $v0, 4
+	syscall
 	
 GetSecondValue:
 	la $a0, AskSecondValue
@@ -99,20 +104,29 @@ GetSecondValue:
 	li $v0, 5
 	syscall
 	
-	blt $v0, 1000, GetSecondValue
+	move $t0, $v0	# temporarily move the second value to t0.  This will be overwritten later, but I'll be done with it by then.
+	
+	bne $v0, 1337, NoEggs
+	la $a0, NotLeet
+	li $v0, 4
+	syscall
+	
+	j Constants
+	
+	
+NoEggs:	blt $v0, 1000, GetSecondValue
 	bgt $v0, 99999, GetSecondValue
 		
 ####### These are all constants.
-
+Constants:
 	li $t9, 10000 	# the remainder will be divided by 10000 to get a number between 0 and 8
-	add $s7, $s7, $v0
+	add $s7, $s7, $t0
 	li $s4, 61	# store a in s4
 	li $s5, 3571	# store c in s5
 	li $s6, 90000	# store m in s6
 	
 ########
-
-	li $t7, 1000 	# because so far we've refrained from using s registers
+	li $t7, 1000 
 	
 GetDifficulty:
 	la $a0, AskDifficulty
@@ -124,6 +138,8 @@ GetDifficulty:
 	
 	blt		$v0, 1, GetDifficulty
 	bgt		$v0, 9, GetDifficulty
+	
+	move $s0, $v0	# move the difficulty into s0
 	
 difficulty_end:
 
@@ -713,7 +729,7 @@ WriteZeroes:
 	mul $s7, $s7, $s4
 	add $s7, $s7, $s5
 	div $s7, $s6 
-	mfhi $t3
+	mfhi $s7
 	add $t8, $s7, $zero
 	div $t8, $t9
 	mflo $t8
@@ -1488,7 +1504,11 @@ FirstPuzzle:
 AskFirstValue:
 	.asciiz "Enter a random value between 1000 and 99999\n"
 AskSecondValue:
-	.asciiz "Enter another number between 1000 and 99999.  These will be used to seed the random number generator.\n"
+	.asciiz "Enter another number between 1000 and 99999.  These will be used to seed the random number generator, so try not to enter the same two numbers you did prior.\n"
 AskDifficulty:
-	.asciiz "Enter a value between 1 and 9.  This will determine how hard the final puzzle is.  So no pressure or anything.\n"
+	.asciiz "Enter a value between 1 and 8.  This will determine how hard the final puzzle is.  Enter 9 for a blank board.\n"
 Continue:	.asciiz  "\nPress Enter to solve this puzzle"
+LuggageCode:
+	.asciiz "Is that the combination on your luggage?\n"
+NotLeet:
+	.asciiz "If you have to proclaim your 1337ness, how 1337 are you really?\n"
